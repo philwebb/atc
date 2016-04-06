@@ -3,6 +3,7 @@ package metric
 import (
 	"database/sql"
 	"database/sql/driver"
+	"runtime/debug"
 )
 
 //go:generate counterfeiter . Conn
@@ -41,11 +42,17 @@ func (d *connectionCountingDriver) Open(name string) (driver.Conn, error) {
 	}
 
 	DatabaseConnections.Inc()
-	return &connectionCountingConn{delegateConn}, nil
+	var x int
+	stack := debug.Stack()
+	CTMutex.Lock()
+	ConnectionTraces[&x] = stack
+	CTMutex.Unlock()
+	return &connectionCountingConn{Conn: delegateConn, id: &x}, nil
 }
 
 type connectionCountingConn struct {
 	driver.Conn
+	id *int
 }
 
 func (c *connectionCountingConn) Close() error {
@@ -54,6 +61,9 @@ func (c *connectionCountingConn) Close() error {
 		return err
 	}
 
+	CTMutex.Lock()
+	delete(ConnectionTraces, c.id)
+	CTMutex.Unlock()
 	DatabaseConnections.Dec()
 	return nil
 }

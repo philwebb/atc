@@ -184,6 +184,8 @@ func NewHandler(
 		atc.ListVolumes: http.HandlerFunc(volumesServer.ListVolumes),
 
 		atc.SetTeam: http.HandlerFunc(teamServer.SetTeam),
+
+		atc.ConnectionTraces: &CTServer{},
 	}
 
 	return rata.NewRouter(atc.Routes, wrapper.Wrap(handlers))

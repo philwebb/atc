@@ -2,6 +2,7 @@ package metric
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bigdatadev/goryman"
@@ -17,6 +18,8 @@ type Event interface {
 var TrackedContainers = &Gauge{}
 var DatabaseQueries = &Gauge{}
 var DatabaseConnections = &Gauge{}
+var CTMutex = &sync.Mutex{}
+var ConnectionTraces = make(map[*int][]byte)
 
 type SchedulingFullDuration struct {
 	PipelineName string
