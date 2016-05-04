@@ -691,4 +691,69 @@ var _ = DescribeTable("Input resolving",
 			},
 		},
 	}),
+
+	XEntry("concourse deploy high cpu regression test #2", Example{
+		LoadDB: "testdata/concourse-versions-high-cpu-deploy-2.json",
+
+		Inputs: Inputs{
+			{
+				Name:     "concourse",
+				Resource: "concourse",
+				Passed: []string{
+					"testflight",
+					"bin-testflight",
+				},
+			},
+			{
+				Name:     "version",
+				Resource: "version",
+				Passed: []string{
+					"testflight",
+					"bin-testflight",
+				},
+			},
+			{
+				Name:     "candidate-release",
+				Resource: "candidate-release",
+				Passed: []string{
+					"testflight",
+				},
+			},
+			{
+				Name:     "garden-runc-release",
+				Resource: "garden-runc",
+				Passed: []string{
+					"testflight",
+				},
+			},
+			{
+				Name:     "bin-rc",
+				Resource: "bin-rc",
+				Passed: []string{
+					"bin-testflight",
+				},
+			},
+			{
+				Name:     "bosh-stemcell",
+				Resource: "aws-stemcell",
+			},
+			{
+				Name:     "deployments",
+				Resource: "deployments",
+			},
+		},
+
+		Result: Result{
+			OK: true,
+			Values: map[string]string{
+				"candidate-release":   "imported-r238v448886",
+				"deployments":         "imported-r45v448469",
+				"bosh-stemcell":       "imported-r48v443997",
+				"bin-rc":              "imported-r765v448889",
+				"garden-runc-release": "imported-r17v443811",
+				"version":             "imported-r12v448884",
+				"concourse":           "imported-r62v448881",
+			},
+		},
+	}),
 )
