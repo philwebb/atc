@@ -6,10 +6,12 @@ import (
 
 	gclient "github.com/cloudfoundry-incubator/garden/client"
 	gconn "github.com/cloudfoundry-incubator/garden/client/connection"
+	"github.com/cloudfoundry-incubator/garden/routes"
 	"github.com/concourse/baggageclaim"
 	bclient "github.com/concourse/baggageclaim/client"
 	"github.com/pivotal-golang/clock"
 	"github.com/pivotal-golang/lager"
+	"github.com/tedsuo/rata"
 
 	"github.com/concourse/atc/db"
 )
@@ -111,17 +113,22 @@ func (provider *dbProvider) newGardenWorker(tikTok clock.Clock, savedWorker db.S
 		"addr": savedWorker.GardenAddr,
 	})
 
+	gcf := NewGardenConnectionFactory(
+		provider.db,
+		provider.logger.Session("garden-connection"),
+		savedWorker.Name,
+		savedWorker.GardenAddr,
+	)
+
 	gardenConn := NewRetryableConnection(
 		workerLog,
-		tikTok,
-		provider.retryPolicy,
-		NewGardenConnectionFactory(
-			provider.db,
-			provider.dialer,
-			provider.logger.Session("garden-connection"),
-			savedWorker.Name,
-			savedWorker.GardenAddr,
-		),
+		// TODO: why do we need two declarations of this struct?
+		WorkerHijackStreamer{
+			HijackStreamer: gconn.NewHijackStreamer("tcp", savedWorker.GardenAddr),
+			HttpClient:     gcf.CreateRetryableHttpClient(),
+			req:            rata.NewRequestGenerator("http://"+savedWorker.GardenAddr, routes.Routes),
+		},
+		gcf,
 	)
 
 	var bClient baggageclaim.Client

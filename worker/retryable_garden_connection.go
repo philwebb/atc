@@ -38,29 +38,24 @@ var retryableErrors = []error{
 
 type RetryableConnection struct {
 	gconn.Connection
-
-	Logger            lager.Logger
-	Sleeper           Sleeper
-	RetryPolicy       RetryPolicy
-	ConnectionFactory GardenConnectionFactory
-
-	connectionUpdateLock sync.Mutex
+	//TODO: remove logger?
+	Logger                 lager.Logger
+	ConnectionFactory      GardenConnectionFactory
+	WorkerHijackerStreamer WorkerHijackStreamer
+	connectionUpdateLock   sync.Mutex
 }
 
 func NewRetryableConnection(
 	logger lager.Logger,
-	sleeper Sleeper,
-	retryPolicy RetryPolicy,
+	hijackStreamer WorkerHijackStreamer,
 	connectionFactory GardenConnectionFactory,
 ) *RetryableConnection {
 	return &RetryableConnection{
-		Connection: connectionFactory.BuildConnection(),
-
-		Logger:               logger,
-		Sleeper:              sleeper,
-		RetryPolicy:          retryPolicy,
-		ConnectionFactory:    connectionFactory,
-		connectionUpdateLock: sync.Mutex{},
+		Connection:             connectionFactory.BuildConnection(),
+		Logger:                 logger,
+		WorkerHijackerStreamer: hijackStreamer,
+		ConnectionFactory:      connectionFactory,
+		connectionUpdateLock:   sync.Mutex{},
 	}
 }
 
@@ -69,18 +64,7 @@ func (conn *RetryableConnection) Ping() error {
 }
 
 func (conn *RetryableConnection) Capacity() (garden.Capacity, error) {
-	var capacity garden.Capacity
-
-	err := conn.retry(func() error {
-		var err error
-		capacity, err = conn.Connection.Capacity()
-		return err
-	})
-	if err != nil {
-		return garden.Capacity{}, err
-	}
-
-	return capacity, nil
+	return conn.Connection.Capacity()
 }
 
 func (conn *RetryableConnection) List(properties garden.Properties) ([]string, error) {
@@ -358,49 +342,10 @@ func (conn *RetryableConnection) Attach(handle string, processID string, process
 }
 
 func (conn *RetryableConnection) retry(action func() error) error {
-	retryLogger := conn.Logger.Session("retry")
-	startTime := time.Now()
+	// TODO: just leaving this in so we can compile
+	// We want retry to happen in the underlying retryable http connection
 
-	var err error
-
-	var failedAttempts uint
-	for {
-		err = action()
-		if err == nil {
-			return nil
-		}
-
-		if !conn.retryable(err) {
-			break
-		}
-
-		failedAttempts++
-
-		delay, keepRetrying := conn.RetryPolicy.DelayFor(failedAttempts)
-		if !keepRetrying {
-			retryLogger.Error("giving-up", errors.New("giving up"), lager.Data{
-				"total-failed-attempts": failedAttempts,
-				"ran-for":               time.Now().Sub(startTime).String(),
-			})
-
-			break
-		}
-
-		retryLogger.Info("retrying", lager.Data{
-			"failed-attempts": failedAttempts,
-			"next-attempt-in": delay.String(),
-			"ran-for":         time.Now().Sub(startTime).String(),
-		})
-
-		conn.Sleeper.Sleep(delay)
-
-		err = conn.updateConnectionFromDB()
-		if err != nil {
-			break
-		}
-	}
-
-	return err
+	return action()
 }
 
 func (conn *RetryableConnection) updateConnectionFromDB() error {
