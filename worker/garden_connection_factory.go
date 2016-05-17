@@ -3,11 +3,16 @@ package worker
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cloudfoundry-incubator/garden"
@@ -122,6 +127,7 @@ type WorkerHijackStreamer struct {
 	delegate   gconn.HijackStreamer
 	httpClient http.Client
 	req        *rata.RequestGenerator
+	dialer     gconn.DialerFunc
 }
 
 func (h WorkerHijackStreamer) Stream(handler string, body io.Reader, params rata.Params, query url.Values, contentType string) (io.ReadCloser, error) {
@@ -158,6 +164,75 @@ func (h WorkerHijackStreamer) Stream(handler string, body io.Reader, params rata
 	return httpResp.Body, nil
 }
 
+func retryable(request *http.Request, err error) bool {
+	if neterr, ok := err.(net.Error); ok {
+		if neterr.Temporary() {
+			return true
+		}
+	}
+
+	s := err.Error()
+	for _, retryableError := range retryableErrors {
+		if strings.HasSuffix(s, retryableError.Error()) {
+			return true
+		}
+	}
+
+	return false
+}
+
+var retryableErrors = []error{
+	syscall.ECONNREFUSED,
+	syscall.ECONNRESET,
+	syscall.ETIMEDOUT,
+	errors.New("i/o timeout"),
+	errors.New("no such host"),
+	errors.New("remote error: handshake failure"),
+}
+
+func (h WorkerHijackStreamer) RetryHijack(request *http.Request, client *httputil.ClientConn) (*http.Response, error) {
+	//create RetryRoundTripper
+	//return retryRoundTripper.RoundTrip(request)
+}
+
 func (h WorkerHijackStreamer) Hijack(handler string, body io.Reader, params rata.Params, query url.Values, contentType string) (net.Conn, *bufio.Reader, error) {
-	return h.delegate.Hijack(handler, body, params, query, contentType)
+	request, err := h.req.CreateRequest(handler, params, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if contentType != "" {
+		request.Header.Set("Content-Type", contentType)
+	}
+
+	if query != nil {
+		request.URL.RawQuery = query.Encode()
+	}
+
+	conn, err := h.dialer("tcp", "api") // net/addr don't matter here
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client := httputil.NewClientConn(conn, nil)
+
+	httpResp, err := h.RetryHijack(request, client)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if httpResp.StatusCode < 200 || httpResp.StatusCode > 299 {
+		defer httpResp.Body.Close()
+
+		errRespBytes, err := ioutil.ReadAll(httpResp.Body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Backend error: Exit status: %d, error reading response body: %s", httpResp.StatusCode, err)
+		}
+
+		return nil, nil, fmt.Errorf("Backend error: Exit status: %d, message: %s", httpResp.StatusCode, errRespBytes)
+	}
+
+	hijackedConn, hijackedResponseReader := client.Hijack()
+
+	return hijackedConn, hijackedResponseReader, nil
 }

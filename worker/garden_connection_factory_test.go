@@ -103,4 +103,8 @@ var _ = Describe("GardenConnectionFactory", func() {
 			})
 		})
 	})
+
+	Describe("RetryHijack", func() {
+
+	})
 })
