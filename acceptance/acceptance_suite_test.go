@@ -137,6 +137,8 @@ func getATCCommand(atcBin string, atcServerNumber uint16, publiclyViewable bool,
 		)
 	}
 
+	var externalUrl string
+
 	var tlsPort uint16
 	tlsPort = 7697 + uint16(GinkgoParallelNode()) + (atcServerNumber * 100)
 	if len(tlsFlags) > 0 {
@@ -151,7 +153,10 @@ func getATCCommand(atcBin string, atcServerNumber uint16, publiclyViewable bool,
 
 	if len(tlsFlags) > 2 {
 		Expect(tlsFlags[2]).To(Equal("--tls-key"))
-		params = append(params, "--tls-key", filepath.Join(certTmpDir, "server.key"))
+		externalUrl = "https://example.com"
+		params = append(params, "--tls-key", filepath.Join(certTmpDir, "server.key"),
+			"--external-url", externalUrl,
+		)
 	}
 
 	for _, authType := range authTypes {
