@@ -113,7 +113,7 @@ var _ = Describe("Volumes", func() {
 			Expect(fakeDB.SetVolumeSizeCallCount()).To(Equal(1))
 			actualHandle, actualVolumeSize := fakeDB.SetVolumeSizeArgsForCall(0)
 			Expect(actualHandle).To(Equal("some-handle"))
-			Expect(actualVolumeSize).To(Equal(uint(1024)))
+			Expect(actualVolumeSize).To(Equal(uint(1)))
 
 			By("using the ttl from the database each tick")
 			fakeDB.GetVolumeTTLReturns(expectedTTL2, true, nil)

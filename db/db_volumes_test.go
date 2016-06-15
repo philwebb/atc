@@ -109,6 +109,7 @@ var _ = Describe("Keeping track of volumes", func() {
 					WorkerName: "some-worker-name",
 					TTL:        5 * time.Minute,
 					Identifier: identifier,
+					SizeInKB:   uint(1),
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -117,6 +118,7 @@ var _ = Describe("Keeping track of volumes", func() {
 					WorkerName: "some-worker-name",
 					TTL:        5 * time.Minute,
 					Identifier: identifier,
+					SizeInKB:   uint(1),
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -125,6 +127,7 @@ var _ = Describe("Keeping track of volumes", func() {
 					WorkerName: "some-worker-name",
 					TTL:        5 * time.Minute,
 					Identifier: identifier,
+					SizeInKB:   uint(1),
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -141,6 +144,8 @@ var _ = Describe("Keeping track of volumes", func() {
 
 			It("returns volumes sorted by ID", func() {
 				volumes, err := database.GetVolumesByIdentifier(identifier)
+				// println("about to sleeeeeeep")
+				// time.Sleep(time.Second * 500)
 				Expect(err).NotTo(HaveOccurred())
 				for i, volume := range volumes {
 					switch i {
@@ -170,17 +175,18 @@ var _ = Describe("Keeping track of volumes", func() {
 					WorkerName: "some-worker-name",
 					TTL:        5 * time.Minute,
 					Identifier: identifier,
+					SizeInKB:   uint(1),
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("sets volume size", func() {
-				err := database.SetVolumeSize("volume-1-handle", uint(1024))
+				err := database.SetVolumeSize("volume-1-handle", uint(42))
 				Expect(err).NotTo(HaveOccurred())
 				volumes, err := database.GetVolumesByIdentifier(identifier)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(volumes).To(HaveLen(1))
-				Expect(volumes[0].Size).To(Equal(uint(1024)))
+				Expect(volumes[0].SizeInKB).To(Equal(uint(42)))
 			})
 		})
 

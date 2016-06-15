@@ -19,9 +19,9 @@ func (db *SQLDB) InsertVolume(data Volume) error {
 
 	var resourceVersion []byte
 
-	columns := []string{"worker_name", "ttl", "handle"}
-	params := []interface{}{data.WorkerName, data.TTL, data.Handle}
-	values := []string{"$1", "$2", "$3"}
+	columns := []string{"worker_name", "ttl", "handle", "size_in_kilobytes"}
+	params := []interface{}{data.WorkerName, data.TTL, data.Handle, data.SizeInKB} // TODO: is it okay to put a size in the DB?  It would be zero when it hasn't been initialized
+	values := []string{"$1", "$2", "$3", "$4"}
 
 	if data.TTL == 0 {
 		columns = append(columns, "expires_at")
@@ -120,7 +120,7 @@ func (db *SQLDB) GetVolumes() ([]SavedVolume, error) {
 			replicated_from,
 			path,
 			host_path_version,
-			size
+			size_in_kilobytes
 		FROM volumes
 	`)
 	if err != nil {
@@ -181,7 +181,7 @@ func (db *SQLDB) GetVolumesByIdentifier(id VolumeIdentifier) ([]SavedVolume, err
 			replicated_from,
 			path,
 			host_path_version,
-			size
+			size_in_kilobytes
 		FROM volumes
 		`
 
@@ -223,7 +223,7 @@ func (db *SQLDB) GetVolumesForOneOffBuildImageResources() ([]SavedVolume, error)
 			v.replicated_from,
 			v.path,
 			v.host_path_version,
-			v.size
+			v.size_in_kilobytes
 		FROM volumes v
 			INNER JOIN image_resource_versions i
 				ON i.version = v.resource_version
@@ -280,12 +280,12 @@ func (db *SQLDB) GetVolumeTTL(handle string) (time.Duration, bool, error) {
 	return ttl, true, nil
 }
 
-func (db *SQLDB) SetVolumeSize(handle string, size uint) error {
+func (db *SQLDB) SetVolumeSize(handle string, size_kilobytes uint) error {
 	_, err := db.conn.Exec(`
 		UPDATE volumes
-		SET size = $1
+		SET size_in_kilobytes = $1
 		WHERE handle = $2
-	`, size, handle)
+	`, size_kilobytes, handle)
 
 	return err
 }
@@ -310,7 +310,7 @@ func (db *SQLDB) getVolume(originalVolumeHandle string) (SavedVolume, error) {
 			replicated_from,
 			path,
 			host_path_version,
-			size
+			size_in_kilobytes
 		FROM volumes
 		WHERE handle = $1
 	`, originalVolumeHandle)
@@ -373,7 +373,7 @@ func scanVolumes(rows *sql.Rows) ([]SavedVolume, error) {
 			&replicationName,
 			&path,
 			&hostPathVersion,
-			&volume.Size,
+			&volume.SizeInKB,
 		)
 		if err != nil {
 			return []SavedVolume{}, err

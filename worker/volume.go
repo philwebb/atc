@@ -163,11 +163,12 @@ func (v *volume) heartbeat(logger lager.Logger, ttl time.Duration) {
 		logger.Error("failed-to-heartbeat-to-database", err)
 	}
 
+	// TODO
 	size, err := v.Size()
 	if err != nil {
 		logger.Error("failed-to-get-volume-size", err)
 	} else {
-		err := v.db.SetVolumeSize(v.Handle(), size)
+		err := v.db.SetVolumeSize(v.Handle(), size/1000) // convert to KB
 		if err != nil {
 			logger.Error("failed-to-store-volume-size", err)
 		}
