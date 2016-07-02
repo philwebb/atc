@@ -176,6 +176,8 @@ func (bc *baggageCollector) expireVolumes(latestVersions hashedVersionSet) error
 
 	seenIdentifiers := map[string]bool{}
 	for _, volumeToExpire := range volumesToExpire {
+		bc.logger.Debug("looking at volume", lager.Data{"handle": volumeToExpire.Handle})
+
 		volumeWorker, err := bc.workerClient.GetWorker(volumeToExpire.WorkerName)
 		if err != nil {
 			bc.logger.Info("could-not-locate-worker", lager.Data{
@@ -221,6 +223,7 @@ func (bc *baggageCollector) expireVolumes(latestVersions hashedVersionSet) error
 
 		if volumeToExpire.TTL == ttlForVol ||
 			(volumeToExpire.ContainerTTL != nil && ttlGreater(*volumeToExpire.ContainerTTL, ttlForVol)) {
+			bc.logger.Debug("container ttl is greater", lager.Data{"handle": volumeToExpire.Handle})
 			continue
 		}
 
@@ -229,6 +232,7 @@ func (bc *baggageCollector) expireVolumes(latestVersions hashedVersionSet) error
 			"handle":      volumeToExpire.Handle,
 		})
 
+		vLogger.Debug("looking up volume")
 		volume, found, err := volumeWorker.LookupVolume(bc.logger, volumeToExpire.Handle)
 		if err != nil {
 			vLogger.Error("failed-to-lookup-volume", err)

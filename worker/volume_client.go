@@ -64,6 +64,7 @@ func (c *volumeClient) FindVolume(
 	}
 
 	savedVolume := savedVolumes[0]
+	logger.Debug("finding volume", lager.Data{"handle": savedVolume.Handle})
 
 	return c.LookupVolume(logger, savedVolume.Handle)
 }
@@ -84,6 +85,7 @@ func (c *volumeClient) CreateVolume(
 		logger.Error("failed-to-create-volume", err)
 		return nil, err
 	}
+	logger.Debug("created volume in bc", lager.Data{"handle": bcVolume.Handle()})
 
 	err = c.db.InsertVolume(db.Volume{
 		Handle:     bcVolume.Handle(),
@@ -95,6 +97,7 @@ func (c *volumeClient) CreateVolume(
 		logger.Error("failed-to-save-volume-to-db", err)
 		return nil, err
 	}
+	logger.Debug("created volume in db", lager.Data{"handle": bcVolume.Handle()})
 
 	volume, found, err := c.volumeFactory.Build(logger, bcVolume)
 	if err != nil {
@@ -154,6 +157,7 @@ func (c *volumeClient) LookupVolume(logger lager.Logger, handle string) (Volume,
 	}
 
 	if !found {
+		logger.Debug("volume not found in lookup", lager.Data{"handle": handle})
 		err = c.db.ReapVolume(handle)
 		if err != nil {
 			logger.Error("failed-to-reap-volume", err)
@@ -167,6 +171,8 @@ func (c *volumeClient) LookupVolume(logger lager.Logger, handle string) (Volume,
 }
 
 func (c *volumeClient) expireVolume(logger lager.Logger, handle string) error {
+	logger.Debug("expiring volume", lager.Data{"handle": handle})
+
 	wVol, found, err := c.LookupVolume(logger, handle)
 	if err != nil {
 		logger.Debug("failed-to-look-up-volume", lager.Data{

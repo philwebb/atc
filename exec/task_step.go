@@ -643,11 +643,13 @@ func (step *TaskStep) ensureBuildDirExists(container garden.Container) error {
 }
 
 func (step *TaskStep) streamInputs(inputPairs []inputPair) error {
+	step.logger.Debug(fmt.Sprintf("streaming-inputs %#v", inputPairs))
 	for _, pair := range inputPairs {
 		destination := newContainerDestination(
 			step.artifactsRoot,
 			step.container,
 			pair.input,
+			step.logger,
 		)
 
 		err := pair.source.StreamTo(destination)
@@ -706,17 +708,21 @@ type containerDestination struct {
 	container     garden.Container
 	inputConfig   atc.TaskInputConfig
 	artifactsRoot string
+	logger        lager.Logger
 }
 
-func newContainerDestination(artifactsRoot string, container garden.Container, inputConfig atc.TaskInputConfig) *containerDestination {
+func newContainerDestination(artifactsRoot string, container garden.Container, inputConfig atc.TaskInputConfig, logger lager.Logger) *containerDestination {
 	return &containerDestination{
 		container:     container,
 		inputConfig:   inputConfig,
 		artifactsRoot: artifactsRoot,
+		logger:        logger,
 	}
 }
 
 func (dest *containerDestination) StreamIn(dst string, src io.Reader) error {
+	dest.logger.Debug(fmt.Sprintf("destination stream %#v", dest))
+
 	inputDst := dest.inputConfig.Path
 	if len(inputDst) == 0 {
 		inputDst = dest.inputConfig.Name
@@ -753,6 +759,8 @@ func newContainerSource(
 }
 
 func (src *containerSource) StreamTo(destination ArtifactDestination) error {
+	src.logger.Debug(fmt.Sprintf("streaming-out-path %#v", artifactsPath(src.outputConfig, src.artifactsRoot)))
+
 	out, err := src.container.StreamOut(garden.StreamOutSpec{
 		Path: artifactsPath(src.outputConfig, src.artifactsRoot),
 	})
@@ -760,8 +768,12 @@ func (src *containerSource) StreamTo(destination ArtifactDestination) error {
 		return err
 	}
 
-	defer out.Close()
+	defer func() {
+		src.logger.Debug(fmt.Sprintf("closing-steam-to"))
+		out.Close()
+	}()
 
+	src.logger.Debug(fmt.Sprintf("destination stream in current directory"))
 	return destination.StreamIn(".", out)
 }
 
@@ -787,6 +799,8 @@ func (src *containerSource) StreamFile(filename string) (io.ReadCloser, error) {
 }
 
 func (src *containerSource) VolumeOn(w worker.Worker) (worker.Volume, bool, error) {
+	src.logger.Debug("volume on", lager.Data{"handle": src.volumeHandle})
+
 	return w.LookupVolume(src.logger, src.volumeHandle)
 }
 

@@ -153,6 +153,7 @@ func (v *volume) heartbeat(logger lager.Logger, ttl time.Duration) {
 	err := v.SetTTL(ttl)
 	if err != nil {
 		if err == baggageclaim.ErrVolumeNotFound {
+			logger.Debug("reaping volume")
 			v.db.ReapVolume(v.Handle())
 		}
 		logger.Error("failed-to-heartbeat-to-volume", err)
